@@ -1,0 +1,133 @@
+/*--tabelas--
+
+cll.cll_f189_entry_operations        reo,
+cll.cll_f189_invoice_types           tip,
+cll.cll_f189_item_utilizations       uti
+------------------------------------------
+
+--.name
+select hr.hr_all_organization_units.name from 	hr.hr_all_organization_units
+
+select  cll.cll_f189_invoice_types.invoice_type_code from cll.cll_f189_invoice_types
+-------------------------------------------------------------------------------------
+
+
+--select PIS------------------------
+         select cll.cll_f189_invoice_dist.functional_dr as pis from cll.cll_f189_invoice_dist
+------------------------------------
+--select o	VALOR_ITEM--------------
+         select cll.cll_f189_invoice_lines.total_amount  as VALOR_ITEM from cll.cll_f189_invoice_lines
+-------------------------------------
+
+
+
+-----------------------------------
+
+select cll.cll_f189_item_utilizations.description  from cll.cll_f189_item_utilizations
+
+
+
+-----------------------------------
+
+--campo--
+cll.cll_f189_invoice_dist.functional_dr
+--*/
+
+
+select aux.dt_gl  
+     , aux.fornecedor
+     , aux.num_nota
+     , aux.chave_completa
+     , aux.cc atividade,
+       decode((select distinct 1
+                from cll.cll_f189_invoice_types z
+               where 1=1
+                 and z.invoice_type_code like 'R%'
+                 and z.invoice_type_id = aux.id_tipo),1,(sum(aux.vr_item)*-1),sum(aux.vr_item)) 
+       vlor_item
+     , aux.filial
+     , aux.utilizacao
+     , aux.tipo
+     , aux.valor_imposto
+     from(
+          select distinct reo.gl_date                           dt_gl,
+                pv.vendor_name                            fornecedor,
+                t.invoice_num                             num_nota,
+                gcc.segment1 || '.' ||
+                gcc.segment2 || '.' || 
+                gcc.segment3 || '.' ||
+                gcc.segment4 || '.' || 
+                gcc.segment5 || '.' || 
+                gcc.segment6 || '.' ||
+                gcc.segment7 || '.' || 
+                gcc.segment8                               chave_completa,
+                apps.fnc_gl_desctipo(3,gcc.segment3)       cc,
+                ril.total_amount                           vr_item,
+                ril.invoice_line_id                        id_item,
+                it.functional_dr                           pis,
+                uti.utilization_code utilizacao,
+                tip.invoice_type_code tipo,
+                haou.name                                  filial,
+                tip.invoice_type_id                        id_tipo,
+                it.functional_dr                           valor_imposto
+                
+              from 
+                     cll.cll_f189_invoices                t,
+                     cll.cll_f189_invoice_lines           ril,
+                     cll.cll_f189_fiscal_entities_all     rfe,
+                     ap.ap_supplier_sites_all             pvsa,
+                     ap.ap_suppliers                      pv,
+                     gl.gl_code_combinations              gcc,
+                     hr.hr_all_organization_units         haou,
+                     cll.cll_f189_entry_operations        reo,
+                     cll.cll_f189_invoice_types           tip,
+                     cll.cll_f189_item_utilizations       uti,
+                     cll.cll_f189_invoice_dist            it                                      
+               
+               where 1=1
+               
+                 and    t.invoice_id                  = ril.invoice_id
+                 and    rfe.entity_id                 = t.entity_id
+                 and    pvsa.vendor_site_id           = rfe.vendor_site_id
+                 and    pvsa.vendor_id                = pv.vendor_id
+                 and    gcc.code_combination_id       = ril.db_code_combination_id
+                 and    ril.utilization_id            = uti.utilization_id
+                 and    it.organization_id            = reo.organization_id
+                 and    haou.organization_id          = t.organization_id
+                 and    reo.organization_id           = t.organization_id
+                 and    reo.location_id               = t.location_id
+                 and    reo.operation_id              = t.operation_id
+                 and    t.invoice_type_id             = tip.invoice_type_id
+                 and    upper(haou.name) like '%OI%PORTO%' 
+                 and    t.invoice_num = '2062'
+           
+     group by t.invoice_num,
+              t.invoice_id,
+              ril.total_amount,
+              pv.vendor_name ,
+              t.invoice_date ,
+              t.creation_date ,
+              reo.gl_date   ,
+              gcc.segment1,gcc.segment2,gcc.segment3,
+              gcc.segment4,gcc.segment5,gcc.segment6,
+              gcc.segment7,gcc.segment8,
+              haou.name,
+              tip.invoice_type_code,
+              tip.invoice_type_id,
+              uti.utilization_code,
+              ril.invoice_line_id,
+              it.functional_dr
+              
+        )aux
+        where 1=1 
+        group by aux.dt_gl
+         , aux.fornecedor
+         , aux.num_nota
+         , aux.chave_completa
+         , aux.cc
+         , aux.id_tipo
+         , aux.filial
+         , aux.utilizacao
+         , aux.tipo
+         ,aux.valor_imposto
+        
